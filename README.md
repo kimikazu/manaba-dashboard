@@ -21,7 +21,7 @@ open http://localhost:3000
 
 ## 使い方
 
-1. `manaba URL` に大学の manaba アドレスを入力（例: `https://hokuriku-u.manaba.jp`）
+1. `manaba URL` に大学の manaba アドレスを入力
 2. 教職員 ID / パスワードを入力し **接続する**
 3. コース一覧から集約したいコースを選択（年度フィルタで絞込可能）
 4. **集約開始** → リアルタイムで進捗を表示しながら提出状況を取得
