@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>manaba レポート集約</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #F4F3EE;
+  --surface:   #FEFEFE;
+  --ink:       #1A1A2E;
+  --ink-soft:  #6B6B7A;
+  --accent:    #2563EB;
+  --accent-2:  #7C3AED;
+  --ok:        #059669;
+  --warn:      #D97706;
+  --danger:    #DC2626;
+  --border:    #E2E1D8;
+  --mono:      'DM Mono', monospace;
+  --serif:     'Syne', sans-serif;
+  --sans:      'Noto Sans JP', sans-serif;
+  --radius:    8px;
+  --shadow:    0 2px 12px rgba(26,26,46,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── ヘッダ ── */
+header {
+  background: var(--ink);
+  color: #fff;
+  padding: 0 2rem;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 2px solid var(--accent);
+}
+header h1 {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  letter-spacing: .06em;
+  color: #fff;
+}
+header .pill {
+  font-family: var(--mono);
+  font-size: .65rem;
+  background: var(--accent);
+  color: #fff;
+  padding: .15rem .55rem;
+  border-radius: 99px;
+  letter-spacing: .05em;
+}
+.header-right { margin-left: auto; display: flex; align-items: center; gap: .75rem; }
+#loginStatus {
+  font-size: .75rem;
+  color: rgba(255,255,255,.55);
+  font-family: var(--mono);
+}
+#loginStatus.on { color: #4ade80; }
+
+/* ── メインレイアウト ── */
+main {
+  flex: 1;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* ── カード ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.card-head {
+  padding: .75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: #f9f8f5;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.card-head h2 {
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.card-body { padding: 1.25rem; }
+
+/* ── フォーム要素 ── */
+.field { margin-bottom: 1rem; }
+.field:last-child { margin-bottom: 0; }
+label {
+  display: block;
+  font-size: .72rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-bottom: .35rem;
+  letter-spacing: .04em;
+}
+input[type="text"], input[type="password"], input[type="url"] {
+  width: 100%;
+  padding: .55rem .8rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: .85rem;
+  background: var(--bg);
+  color: var(--ink);
+  transition: border-color .2s;
+  outline: none;
+}
+input:focus { border-color: var(--accent); background: #fff; }
+
+/* ── ボタン ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .6rem 1.1rem;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: .82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: var(--bg); border: 1.5px solid var(--border); color: var(--ink); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-sm { padding: .38rem .75rem; font-size: .75rem; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-full { width: 100%; justify-content: center; }
+
+/* ── コース一覧 ── */
+#courseList {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: .25rem;
+}
+#courseList::-webkit-scrollbar { width: 4px; }
+#courseList::-webkit-scrollbar-track { background: var(--bg); }
+#courseList::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.course-item {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .5rem .7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .12s;
+  border: 1px solid transparent;
+}
+.course-item:hover { background: var(--bg); border-color: var(--border); }
+.course-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+.course-item label {
+  font-size: .8rem;
+  color: var(--ink);
+  cursor: pointer;
+  margin: 0;
+  line-height: 1.4;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.select-all-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: .75rem;
+}
+.select-all-row span { font-size: .72rem; color: var(--ink-soft); font-family: var(--mono); }
+
+/* ── プログレス ── */
+#progressSection { display: none; }
+.progress-bar-wrap {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: .75rem 0;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 3px;
+  width: 0%;
+  transition: width .3s ease;
+}
+#progressLog {
+  font-family: var(--mono);
+  font-size: .7rem;
+  color: var(--ink-soft);
+  height: 60px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: .15rem;
+}
+
+/* ── 統計カード ── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+}
+.stat-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .85rem 1rem;
+  text-align: center;
+}
+.stat-card .val {
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: .25rem;
+}
+.stat-card .lbl {
+  font-size: .68rem;
+  color: var(--ink-soft);
+  letter-spacing: .04em;
+}
+
+/* ── グラフ ── */
+.chart-section {
+  display: none;
+  margin-bottom: 1.25rem;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.chart-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: .85rem;
+  min-width: 0;
+}
+.chart-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .6rem;
+}
+.chart-title h3 {
+  font-size: .82rem;
+  color: var(--ink);
+}
+.chart-title span {
+  font-family: var(--mono);
+  font-size: .68rem;
+  color: var(--ink-soft);
+}
+.chart-scroll {
+  overflow-x: auto;
+}
+.chart-scroll svg {
+  display: block;
+  min-height: 300px;
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem .75rem;
+  margin-top: .6rem;
+  font-size: .7rem;
+  color: var(--ink-soft);
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .28rem;
+}
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* ── テーブル ── */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+thead tr { background: var(--ink); color: #fff; }
+thead th {
+  padding: .7rem .9rem;
+  text-align: left;
+  font-weight: 500;
+  font-size: .72rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+thead th:hover { background: #2d2d4a; }
+thead th.sorted-asc::after  { content: ' ▲'; font-size: .6rem; }
+thead th.sorted-desc::after { content: ' ▼'; font-size: .6rem; }
+
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f0eeea; }
+tbody td { padding: .65rem .9rem; vertical-align: middle; }
+.td-course { color: var(--ink-soft); font-size: .72rem; }
+.td-title a { color: var(--accent); text-decoration: none; }
+.td-title a:hover { text-decoration: underline; }
+.td-mono { font-family: var(--mono); font-size: .75rem; }
+
+/* 提出率バッジ */
+.rate-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .2rem .6rem;
+  border-radius: 99px;
+  font-family: var(--mono);
+  font-size: .75rem;
+  font-weight: 500;
+}
+.rate-high   { background: #d1fae5; color: #065f46; }
+.rate-mid    { background: #fef3c7; color: #92400e; }
+.rate-low    { background: #fee2e2; color: #991b1b; }
+.rate-null   { background: var(--bg); color: var(--ink-soft); }
+
+/* ミニゲージ */
+.mini-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; margin-top: .35rem; }
+.mini-bar { height: 100%; border-radius: 2px; }
+
+/* ── アクションバー ── */
+.action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar-left { display: flex; align-items: center; gap: .5rem; }
+
+/* フィルタ入力 */
+#filterInput {
+  padding: .45rem .8rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-size: .8rem;
+  width: 220px;
+  outline: none;
+  background: var(--bg);
+  font-family: var(--sans);
+}
+#filterInput:focus { border-color: var(--accent); background: #fff; }
+
+/* ── モーダル ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: min(480px, 90vw);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+.modal h3 { font-size: 1.05rem; margin-bottom: 1.25rem; }
+.modal-footer { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.5rem; }
+
+/* ── トースト ── */
+#toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--ink);
+  color: #fff;
+  padding: .75rem 1.2rem;
+  border-radius: 8px;
+  font-size: .82rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: all .25s;
+  z-index: 300;
+  max-width: 320px;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.ok   { border-left: 4px solid var(--ok); }
+#toast.err  { border-left: 4px solid var(--danger); }
+
+/* ── 空状態 ── */
+.empty-state {
+  text-align: center;
+  padding: 3.5rem 1rem;
+  color: var(--ink-soft);
+}
+.empty-state .icon { font-size: 2.5rem; margin-bottom: .75rem; }
+.empty-state p { font-size: .85rem; }
+
+/* ── レスポンシブ ── */
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+  .chart-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ヘッダ -->
+<header>
+  <h1>manaba Report Dashboard</h1>
+  <span class="pill">LOCAL</span>
+  <div class="header-right">
+    <span id="loginStatus">未接続</span>
+    <button class="btn btn-sm btn-secondary" id="logoutBtn" style="display:none" onclick="doLogout()">ログアウト</button>
+  </div>
+</header>
+
+<!-- メイン -->
+<main>
+  <!-- 左サイドバー -->
+  <div id="sidebar">
+
+    <!-- 接続設定 -->
+    <div class="card" id="loginCard">
+      <div class="card-head"><h2>接続設定</h2></div>
+      <div class="card-body">
+        <div class="field">
+          <label>manaba URL</label>
+          <input type="url" id="baseUrl" placeholder="https://xxx.manaba.jp" value="">
+        </div>
+        <div class="field">
+          <label>ユーザーID</label>
+          <input type="text" id="username" placeholder="教職員ID" autocomplete="username">
+        </div>
+        <div class="field">
+          <label>パスワード</label>
+          <input type="password" id="password" autocomplete="current-password">
+        </div>
+        <div class="field">
+          <label>年度フィルタ (任意)</label>
+          <input type="text" id="yearFilter" placeholder="例: 2025">
+        </div>
+        <details style="margin-bottom:1rem">
+          <summary style="font-size:.75rem;color:var(--ink-soft);cursor:pointer;user-select:none;margin-bottom:.5rem">
+            詳細設定（プロキシ）
+          </summary>
+          <div class="field" style="margin-top:.5rem">
+            <label>プロキシ URL (任意)</label>
+            <input type="text" id="proxyUrl" placeholder="http://proxy.example.ac.jp:8080">
+          </div>
+          <div style="display:flex;gap:1px;align-items:center;margin-bottom:.5rem">
+            <input type="checkbox" id="ignoreTls" style="width:14px;height:14px;accent-color:var(--accent)">
+            <label for="ignoreTls" style="margin:0 0 0 .4rem;font-size:.75rem;color:var(--ink-soft);font-weight:400;cursor:pointer">TLS証明書エラーを無視（学内プロキシ用）</label>
+          </div>
+        </details>
+        <div style="display:flex;gap:.5rem;margin-bottom:.75rem">
+          <button class="btn btn-secondary" style="flex:1" id="diagnoseBtn" onclick="doDiagnose()">疎通確認</button>
+        </div>
+        <div id="diagnoseResult" style="display:none;margin-bottom:.75rem;font-size:.75rem;border-radius:6px;overflow:hidden;border:1px solid var(--border)"></div>
+        <button class="btn btn-primary btn-full" id="loginBtn" onclick="doLogin()">接続する</button>
+      </div>
+    </div>
+
+    <!-- コース選択 -->
+    <div class="card" id="courseCard" style="display:none; margin-top:1rem;">
+      <div class="card-head"><h2>対象コース</h2></div>
+      <div class="card-body">
+        <div class="select-all-row">
+          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.78rem;color:var(--ink);font-weight:500;letter-spacing:.02em;">
+            <input type="checkbox" id="selectAll" onchange="toggleAll(this)"> すべて選択
+          </label>
+          <span id="selectedCount">0 / 0</span>
+        </div>
+        <div id="courseList"></div>
+        <div id="sessionDebugResult" style="display:none;margin-top:.75rem;font-size:.75rem;border-radius:6px;overflow:hidden;border:1px solid var(--border)"></div>
+        <button class="btn btn-primary btn-full" style="margin-top:1rem" id="aggregateBtn" onclick="doAggregate()">
+          集約開始
+        </button>
+      </div>
+    </div>
+
+    <!-- 進捗 -->
+    <div class="card" id="progressSection" style="margin-top:1rem;">
+      <div class="card-head"><h2>取得中</h2></div>
+      <div class="card-body">
+        <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+        <div id="progressLog"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 右メインエリア -->
+  <div id="resultArea">
+    <div class="card">
+      <div class="card-head">
+        <h2>レポート提出状況</h2>
+      </div>
+      <div class="card-body">
+
+        <!-- 統計 -->
+        <div class="stat-grid" id="statGrid" style="display:none">
+          <div class="stat-card"><div class="val" id="statCourses">-</div><div class="lbl">コース数</div></div>
+          <div class="stat-card"><div class="val" id="statReports">-</div><div class="lbl">レポート数</div></div>
+          <div class="stat-card"><div class="val" id="statAvgRate">-</div><div class="lbl">平均提出率</div></div>
+        </div>
+
+        <div class="chart-section" id="chartSection">
+          <div class="chart-grid">
+            <div class="chart-panel">
+              <div class="chart-title">
+                <h3>提出数</h3>
+                <span>レポート別</span>
+              </div>
+              <div class="chart-scroll"><div id="submittedChart"></div></div>
+              <div class="chart-legend" id="submittedLegend"></div>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-title">
+                <h3>提出率</h3>
+                <span>コース比較</span>
+              </div>
+              <div class="chart-scroll"><div id="rateChart"></div></div>
+              <div class="chart-legend" id="rateLegend"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- アクションバー -->
+        <div class="action-bar" id="actionBar" style="display:none">
+          <div class="action-bar-left">
+            <input type="text" id="filterInput" placeholder="コース名・タイトルで絞込">
+            <button class="btn btn-secondary btn-sm" onclick="clearFilter()">クリア</button>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <button class="btn btn-secondary btn-sm" onclick="exportCSV()">CSV 出力</button>
+          </div>
+        </div>
+
+        <!-- テーブル -->
+        <div class="table-wrap" id="tableWrap" style="display:none">
+          <table id="resultTable">
+            <thead>
+              <tr>
+                <th onclick="sortTable(0)">コース</th>
+                <th onclick="sortTable(1)">レポートタイトル</th>
+                <th onclick="sortTable(2)">締切</th>
+                <th onclick="sortTable(3)">状態</th>
+                <th onclick="sortTable(4)" style="text-align:right">学生数</th>
+                <th onclick="sortTable(5)" style="text-align:right">提出済</th>
+                <th onclick="sortTable(6)">提出率</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 空状態 -->
+        <div class="empty-state" id="emptyState">
+          <div class="icon">REPORTS</div>
+          <p>左のパネルから manaba に接続し、<br>コースを選択して集約を開始してください。</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- トースト -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+// 状態
+// ─────────────────────────────────────────
+let allData = [];
+let sortCol = -1, sortAsc = true;
+
+// ─────────────────────────────────────────
+// ログイン
+// ─────────────────────────────────────────
+async function debugLinks() {
+  const box = el('debugResult');
+  if (!box) return;
+  box.style.display = '';
+  box.textContent = '取得中...';
+
+  // /ct/home を基点にリンクを全取得
+  const res = await get('/api/debug/links?path=/ct/home');
+  if (res.error) { box.textContent = 'エラー: ' + res.error; return; }
+
+  if (res.ctLinks.length === 0) {
+    box.textContent = `/ct/home 内に /ct/ リンクが見つかりません。
+全リンク数: ${res.total}
+
+→ manaba のコース一覧 URL が異なる可能性があります。
+  ブラウザでコース一覧を開いたときのURLを教えてください。`;
+    return;
+  }
+
+  // /ct/{id} と course_123456 の相対リンクを候補にする
+  const candidates = res.ctLinks.filter(l => extractCourseIdFromHref(l.href));
+  box.textContent = `全リンク: ${res.total}件  /ct/リンク: ${res.ctLinks.length}件  コース候補: ${candidates.length}件
+
+`
+    + candidates.slice(0, 30).map(l => `${l.href.padEnd(50)} "${l.text}"`).join('\n');
+
+  // 診断結果を元にコース ID パターンを自動修正して再取得
+  if (candidates.length > 0) {
+    toast(`${candidates.length} 件のリンクを検出しました。パターンを自動調整して再取得します`, 'ok');
+    await reloadCoursesFromDebug(candidates);
+  }
+}
+
+async function reloadCoursesFromDebug(candidates) {
+  // サーバー側パターンに頼らず、クライアント側でコース候補を構築してリストに追加
+  const seen = new Set();
+  const courses = [];
+
+  for (const { href, text } of candidates) {
+    const id = extractCourseIdFromHref(href);
+    if (!id) continue;
+    if (seen.has(id)) continue;
+    if (!text || text.length < 2) continue;
+    seen.add(id);
+    courses.push({ id, name: text.slice(0, 80), url: href });
+  }
+
+  if (courses.length === 0) {
+    toast('コース候補が自動検出できませんでした。診断結果を開発者にご連絡ください。', 'err');
+    return;
+  }
+
+  // コースリストを手動で描画
+  const list = el('courseList');
+  list.innerHTML = '';
+  courses.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'course-item';
+    div.innerHTML = `<input type="checkbox" id="c_${c.id}" value="${c.id}" onchange="updateCount()">
+      <label for="c_${c.id}">${esc(c.name)}</label>`;
+    list.appendChild(div);
+  });
+  updateCount();
+  toast(`${courses.length} 件のコースを検出しました`, 'ok');
+}
+
+function extractCourseIdFromHref(href) {
+  try {
+    const inputBase = v('baseUrl').trim() || location.origin;
+    const parsedBase = new URL(inputBase, location.origin);
+    const base = parsedBase.pathname.startsWith('/ct') ? parsedBase.origin : inputBase.replace(/\/$/, '');
+    const url = new URL(href, base + '/ct/home');
+    const token = (url.pathname.match(/^\/ct\/([^/?#]+)\/?$/) || [])[1] || '';
+    if (/^course_\d+$/.test(token)) return token;
+    if (/^course_\d+_/.test(token)) return '';
+    if (/_(report|query|survey|bbs|thread|content|grade|member|attendance|profile|setting|login|logout|top|home|favoritecourse|campusnews|usermemo|submitlog|library|lang|preferences|releasenotes)($|_|\d)/i.test(token)) return '';
+    if (/^(home|logout|login|doc_|user_|public|course_)|_(set|view)$/i.test(token)) return '';
+    return /^[A-Za-z0-9][A-Za-z0-9_]{3,}$/.test(token) ? token : '';
+  } catch {
+    return '';
+  }
+}
+
+async function doDiagnose() {
+  const baseUrl = v('baseUrl').trim();
+  if (!baseUrl) { toast('manaba URL を入力してください', 'err'); return; }
+  setBtn('diagnoseBtn', true, '確認中...');
+
+  const params = new URLSearchParams({
+    url: baseUrl,
+    proxy: v('proxyUrl').trim(),
+    ignoreTls: String(el('ignoreTls').checked)
+  });
+  const res = await get(`/api/diagnose?${params.toString()}`);
+  const box = el('diagnoseResult');
+  box.style.display = '';
+  box.innerHTML = res.steps.map(s => `
+    <div style="padding:.45rem .8rem;background:${s.ok?'#f0fdf4':'#fef2f2'};border-bottom:1px solid var(--border);display:flex;gap:.5rem;align-items:baseline">
+      <span>${s.ok ? 'OK' : 'NG'}</span>
+      <span style="font-weight:600;min-width:100px">${s.step}</span>
+      <span style="color:var(--ink-soft)">${s.detail}</span>
+    </div>`).join('') +
+    `<div style="padding:.4rem .8rem;background:#f9f8f5;font-size:.7rem;color:var(--ink-soft)">プロキシ: ${res.proxy || '未使用'}</div>`;
+
+  setBtn('diagnoseBtn', false, '疎通確認');
+  if (res.ok) toast('接続確認OK。ログインできます', 'ok');
+  else toast('接続に問題があります。下の詳細を確認してください', 'err');
+}
+
+async function doLogin() {
+  const baseUrl  = v('baseUrl').trim();
+  const username = v('username').trim();
+  const password = v('password');
+
+  if (!baseUrl || !username || !password) {
+    toast('すべての接続情報を入力してください', 'err'); return;
+  }
+  setBtn('loginBtn', true, '接続中...');
+
+  try {
+    const res = await post('/api/login', { baseUrl, username, password,
+    proxy: v('proxyUrl').trim(), ignoreTls: el('ignoreTls').checked });
+    if (!res.ok) throw new Error(res.error || 'ログイン失敗');
+    toast('接続しました', 'ok');
+    el('loginStatus').textContent = `接続中: ${username}`;
+    el('loginStatus').classList.add('on');
+    el('logoutBtn').style.display = '';
+    el('loginCard').style.display = 'none';
+    el('courseCard').style.display = '';
+    await loadCourses();
+  } catch (e) {
+    toast(e.message, 'err');
+  } finally {
+    setBtn('loginBtn', false, '接続する');
+  }
+}
+
+async function loadCourses() {
+  const year = v('yearFilter').trim();
+  const res = await get(`/api/courses?year=${encodeURIComponent(year)}`);
+  if (!res.courses) {
+    toast(res.error || 'コース取得失敗', 'err');
+    await showSessionDebug(res.error || 'コース取得失敗');
+    return;
+  }
+
+  el('sessionDebugResult').style.display = 'none';
+  const list = el('courseList');
+  list.innerHTML = '';
+  res.courses.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'course-item';
+    div.innerHTML = `
+      <input type="checkbox" id="c_${c.id}" value="${c.id}" onchange="updateCount()">
+      <label for="c_${c.id}">${esc(c.name)}</label>`;
+    list.appendChild(div);
+  });
+  updateCount();
+  if (res.courses.length === 0) {
+    toast('対象コースが見つかりません。到達ページを確認します', 'err');
+    await showSessionDebug();
+  }
+}
+
+async function showSessionDebug(reason = '') {
+  const box = el('sessionDebugResult') || el('diagnoseResult');
+  box.style.display = '';
+  try {
+    const debug = await get('/api/debug/session?path=/ct/home');
+    if (debug.error) throw new Error(debug.error);
+    box.innerHTML = `
+      <div style="padding:.45rem .8rem;background:#f9f8f5;border-bottom:1px solid var(--border)">
+        /ct/home 到達確認
+      </div>
+      ${reason ? `<div style="padding:.45rem .8rem;background:#fef2f2;border-bottom:1px solid var(--border)">エラー: ${esc(reason)}</div>` : ''}
+      <div style="padding:.45rem .8rem;background:#fff;border-bottom:1px solid var(--border)">HTTP: ${esc(debug.status)}</div>
+      <div style="padding:.45rem .8rem;background:#fff;border-bottom:1px solid var(--border)">最終URL: ${esc(debug.finalUrl)}</div>
+      <div style="padding:.45rem .8rem;background:#fff;border-bottom:1px solid var(--border)">タイトル: ${esc(debug.title)}</div>
+      <div style="padding:.45rem .8rem;background:#fff;border-bottom:1px solid var(--border)">パスワード欄: ${debug.hasPasswordInput ? 'あり' : 'なし'}</div>
+      <div style="padding:.45rem .8rem;background:#fff;border-bottom:1px solid var(--border)">コース候補: ${esc(debug.courseCount)}</div>
+      <div style="padding:.45rem .8rem;background:#fff;font-family:var(--mono);white-space:pre-wrap;max-height:180px;overflow:auto">${esc(debug.courseLinks.map(c => `${c.id} ${c.href} ${c.text}`).join('\n') || '候補リンクなし')}</div>`;
+  } catch (e) {
+    box.innerHTML = `<div style="padding:.45rem .8rem;background:#fef2f2">到達確認エラー: ${esc(e.message)}</div>`;
+  }
+}
+
+function toggleAll(cb) {
+  document.querySelectorAll('#courseList input[type=checkbox]')
+    .forEach(c => c.checked = cb.checked);
+  updateCount();
+}
+
+function updateCount() {
+  const all   = document.querySelectorAll('#courseList input[type=checkbox]');
+  const checked = document.querySelectorAll('#courseList input[type=checkbox]:checked');
+  el('selectedCount').textContent = `${checked.length} / ${all.length}`;
+  el('selectAll').checked = all.length > 0 && checked.length === all.length;
+  el('selectAll').indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+// ─────────────────────────────────────────
+// 集約 (SSE)
+// ─────────────────────────────────────────
+async function doAggregate() {
+  const selected = [...document.querySelectorAll('#courseList input:checked')].map(c => c.value);
+  if (!selected.length) { toast('コースを1つ以上選択してください', 'err'); return; }
+
+  allData = [];
+  el('emptyState').style.display = 'none';
+  el('tableWrap').style.display = 'none';
+  el('actionBar').style.display = 'none';
+  el('statGrid').style.display = 'none';
+  el('chartSection').style.display = 'none';
+  el('progressSection').style.display = '';
+  el('progressBar').style.width = '0%';
+  el('progressLog').innerHTML = '';
+  setBtn('aggregateBtn', true, '集約中...');
+
+  const year = v('yearFilter').trim();
+  const url = `/api/aggregate?courses=${selected.join(',')}&year=${encodeURIComponent(year)}`;
+  const es = new EventSource(url);
+
+  es.addEventListener('progress', e => {
+    const d = JSON.parse(e.data);
+    if (d.phase === 'course') {
+      el('progressBar').style.width = `${(d.index / d.total * 100).toFixed(1)}%`;
+      logProgress(`[${d.index}/${d.total}] ${d.name}`);
+    } else if (d.phase === 'report') {
+      logProgress(`  ${d.report.slice(0,30)} (${d.done}/${d.total})`);
+    }
+  });
+
+  es.addEventListener('courseResult', e => {
+    const d = JSON.parse(e.data);
+    allData.push(...d.reports);
+  });
+
+  es.addEventListener('done', e => {
+    es.close();
+    el('progressSection').style.display = 'none';
+    setBtn('aggregateBtn', false, '集約開始');
+    renderTable(allData);
+    toast(`集約完了: ${allData.length} 件のレポート`, 'ok');
+  });
+
+  es.onerror = () => {
+    es.close();
+    setBtn('aggregateBtn', false, '集約開始');
+    toast('集約中にエラーが発生しました', 'err');
+  };
+}
+
+function logProgress(msg) {
+  const p = el('progressLog');
+  const span = document.createElement('span');
+  span.textContent = msg;
+  p.insertBefore(span, p.firstChild);
+  if (p.children.length > 30) p.lastChild.remove();
+}
+
+// ─────────────────────────────────────────
+// テーブル描画
+// ─────────────────────────────────────────
+function renderTable(data) {
+  const filtered = filterData(data);
+  const tbody = el('resultBody');
+  tbody.innerHTML = '';
+
+  filtered.forEach(r => {
+    const rate = r.rate;
+    const rateClass = rate === null ? 'rate-null' : rate >= 80 ? 'rate-high' : rate >= 50 ? 'rate-mid' : 'rate-low';
+    const rateText  = rate === null ? '-' : `${rate}%`;
+    const barColor  = rate === null ? '#ccc' : rate >= 80 ? '#10b981' : rate >= 50 ? '#f59e0b' : '#ef4444';
+    const barWidth  = rate === null ? 0 : rate;
+    const totalText = r.total > 0 ? r.total : '-';
+    const submittedText = r.total > 0 ? r.submitted : '-';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="td-course">${esc(r.cname)}</td>
+      <td class="td-title"><a href="${esc(r.url)}" target="_blank">${esc(r.title)}</a></td>
+      <td class="td-mono" style="white-space:nowrap">${esc(r.deadline)}</td>
+      <td><span style="font-size:.72rem;color:var(--ink-soft)">${esc(r.status)}</span></td>
+      <td class="td-mono" style="text-align:right">${totalText}</td>
+      <td class="td-mono" style="text-align:right">${submittedText}</td>
+      <td>
+        <span class="rate-badge ${rateClass}">${rateText}</span>
+        <div class="mini-bar-wrap"><div class="mini-bar" style="width:${barWidth}%;background:${barColor}"></div></div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  // 統計
+  const courses = new Set(data.map(r => r.cid)).size;
+  const rates   = data.filter(r => r.rate !== null).map(r => r.rate);
+  const avgRate  = rates.length ? (rates.reduce((a,b)=>a+b,0)/rates.length).toFixed(1) : '-';
+
+  el('statCourses').textContent = courses;
+  el('statReports').textContent = data.length;
+  el('statAvgRate').textContent = avgRate + (avgRate !== '-' ? '%' : '');
+  el('statGrid').style.display = '';
+  el('actionBar').style.display = '';
+  el('tableWrap').style.display = '';
+  renderCharts(filtered);
+
+  // フィルタイベント
+  el('filterInput').oninput = () => renderTable(allData);
+}
+
+function renderCharts(data) {
+  const section = el('chartSection');
+  if (!data.length) {
+    section.style.display = 'none';
+    el('submittedChart').innerHTML = '';
+    el('rateChart').innerHTML = '';
+    return;
+  }
+  section.style.display = '';
+
+  const labels = buildReportLabels(data);
+  const courses = [...new Map(data.map(r => [r.cid, { id: r.cid, name: r.cname }])).values()];
+  const colors = ['#0E7490', '#E76F51', '#166534', '#0EA5E9', '#8B5CF6', '#D97706', '#DB2777', '#475569'];
+
+  drawSubmittedChart(data, labels, courses, colors);
+  drawRateChart(data, labels, courses, colors);
+  drawLegend('submittedLegend', courses, colors);
+  drawLegend('rateLegend', courses, colors);
+}
+
+function buildReportLabels(data) {
+  const map = new Map();
+  data.forEach(r => {
+    const key = reportKey(r);
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        label: reportLabel(r),
+        sort: r.deadline || r.title || key
+      });
+    }
+  });
+  return [...map.values()].sort((a, b) => String(a.sort).localeCompare(String(b.sort), 'ja'));
+}
+
+function reportKey(r) {
+  return normalizeReportTitle(r.title || r.rid || '');
+}
+
+function reportLabel(r) {
+  const title = r.title || '';
+  const m = title.match(/第\s*[0-9０-９一二三四五六七八九十]+回\s*[１２12]?/);
+  if (m) return m[0].replace(/\s+/g, '');
+  return title.length > 14 ? title.slice(0, 14) + '...' : title || r.rid;
+}
+
+function normalizeReportTitle(title) {
+  const m = String(title).match(/第\s*([0-9０-９一二三四五六七八九十]+)\s*回\s*([１２12]?)/);
+  if (m) return `第${m[1]}回${m[2] || ''}`;
+  return String(title).replace(/\s+/g, '').slice(0, 50);
+}
+
+function valueFor(data, courseId, labelKey, field) {
+  const r = data.find(x => x.cid === courseId && reportKey(x) === labelKey);
+  return r ? r[field] : null;
+}
+
+function drawSubmittedChart(data, labels, courses, colors) {
+  const max = Math.max(1, ...data.map(r => r.submitted || 0), ...data.map(r => r.total || 0));
+  const width = Math.max(760, labels.length * Math.max(74, courses.length * 18) + 120);
+  const height = 330, left = 58, right = 18, top = 18, bottom = 78;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const groupW = plotW / labels.length;
+  const barW = Math.max(5, Math.min(16, groupW / Math.max(1, courses.length) - 4));
+
+  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="提出数グラフ">`;
+  svg += chartGrid(left, top, plotW, plotH, max, '件');
+  labels.forEach((label, li) => {
+    const cx = left + groupW * li + groupW / 2;
+    courses.forEach((course, ci) => {
+      const val = valueFor(data, course.id, label.key, 'submitted');
+      if (val === null) return;
+      const h = plotH * ((val || 0) / max);
+      const x = cx - (courses.length * barW + (courses.length - 1) * 4) / 2 + ci * (barW + 4);
+      const y = top + plotH - h;
+      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${colors[ci % colors.length]}"><title>${esc(course.name)} ${esc(label.label)}: ${val}件</title></rect>`;
+    });
+    svg += xLabel(cx, top + plotH + 22, label.label);
+  });
+  svg += `<line x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}" stroke="#9ca3af"/>`;
+  svg += `<text x="16" y="${top + 14}" font-size="11" fill="#6B6B7A">提出数</text>`;
+  svg += '</svg>';
+  el('submittedChart').innerHTML = svg;
+}
+
+function drawRateChart(data, labels, courses, colors) {
+  const min = 0, max = 100;
+  const width = Math.max(760, labels.length * 86 + 120);
+  const height = 330, left = 58, right = 18, top = 18, bottom = 78;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const step = labels.length > 1 ? plotW / (labels.length - 1) : plotW;
+
+  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="提出率グラフ">`;
+  svg += chartGrid(left, top, plotW, plotH, max, '%');
+  courses.forEach((course, ci) => {
+    const points = labels.map((label, li) => {
+      const val = valueFor(data, course.id, label.key, 'rate');
+      if (val === null || val === undefined) return null;
+      const x = labels.length > 1 ? left + step * li : left + plotW / 2;
+      const y = top + plotH - plotH * ((val - min) / (max - min));
+      return { x, y, val, label };
+    }).filter(Boolean);
+    if (!points.length) return;
+    svg += `<polyline fill="none" stroke="${colors[ci % colors.length]}" stroke-width="2.2" points="${points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}"></polyline>`;
+    points.forEach(p => {
+      svg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${colors[ci % colors.length]}"><title>${esc(course.name)} ${esc(p.label.label)}: ${p.val}%</title></circle>`;
+    });
+  });
+  labels.forEach((label, li) => {
+    const x = labels.length > 1 ? left + step * li : left + plotW / 2;
+    svg += xLabel(x, top + plotH + 22, label.label);
+  });
+  svg += `<line x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}" stroke="#9ca3af"/>`;
+  svg += `<text x="16" y="${top + 14}" font-size="11" fill="#6B6B7A">提出率</text>`;
+  svg += '</svg>';
+  el('rateChart').innerHTML = svg;
+}
+
+function chartGrid(left, top, width, height, max, unit) {
+  let out = '';
+  for (let i = 0; i <= 5; i++) {
+    const y = top + height - height * i / 5;
+    const value = Math.round(max * i / 5);
+    out += `<line x1="${left}" y1="${y.toFixed(1)}" x2="${left + width}" y2="${y.toFixed(1)}" stroke="#e5e7eb"/>`;
+    out += `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="#6B6B7A">${value}${unit === '%' ? '' : ''}</text>`;
+  }
+  return out;
+}
+
+function xLabel(x, y, text) {
+  return `<text x="${x.toFixed(1)}" y="${y}" text-anchor="end" transform="rotate(-55 ${x.toFixed(1)} ${y})" font-size="11" fill="#4b5563">${esc(text)}</text>`;
+}
+
+function drawLegend(id, courses, colors) {
+  el(id).innerHTML = courses.map((course, i) =>
+    `<span class="legend-item"><span class="legend-swatch" style="background:${colors[i % colors.length]}"></span>${esc(course.name)}</span>`
+  ).join('');
+}
+
+function filterData(data) {
+  const q = v('filterInput').toLowerCase();
+  if (!q) return data;
+  return data.filter(r =>
+    r.cname.toLowerCase().includes(q) ||
+    r.title.toLowerCase().includes(q)
+  );
+}
+
+function clearFilter() {
+  el('filterInput').value = '';
+  renderTable(allData);
+}
+
+// ─────────────────────────────────────────
+// ソート
+// ─────────────────────────────────────────
+function sortTable(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+
+  document.querySelectorAll('thead th').forEach((th, i) => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (i === col) th.classList.add(sortAsc ? 'sorted-asc' : 'sorted-desc');
+  });
+
+  const keys = ['cname','title','deadline','status','total','submitted','rate'];
+  const key = keys[col];
+  allData.sort((a, b) => {
+    const av = a[key] ?? '', bv = b[key] ?? '';
+    return typeof av === 'number'
+      ? (sortAsc ? av - bv : bv - av)
+      : (sortAsc ? String(av).localeCompare(String(bv), 'ja')
+                 : String(bv).localeCompare(String(av), 'ja'));
+  });
+  renderTable(allData);
+}
+
+// ─────────────────────────────────────────
+// CSV エクスポート
+// ─────────────────────────────────────────
+function exportCSV() {
+  window.open('/api/export/csv', '_blank');
+}
+
+// ─────────────────────────────────────────
+// ログアウト
+// ─────────────────────────────────────────
+async function doLogout() {
+  await post('/api/logout', {});
+  location.reload();
+}
+
+// ─────────────────────────────────────────
+// ユーティリティ
+// ─────────────────────────────────────────
+const el = id => document.getElementById(id);
+const v  = id => el(id).value;
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function setBtn(id, disabled, text) {
+  const b = el(id);
+  b.disabled = disabled;
+  b.textContent = text;
+}
+
+async function get(url) {
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+let toastTimer;
+function toast(msg, type='ok') {
+  const t = el('toast');
+  t.textContent = msg;
+  t.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3200);
+}
+
+// Enter キーでログイン
+['baseUrl','username','password','yearFilter'].forEach(id => {
+  el(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+});
+</script>
+</body>
+</html>
