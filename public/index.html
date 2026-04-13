@@ -268,6 +268,10 @@ input:focus { border-color: var(--accent); background: #fff; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
+.chart-section-bottom {
+  display: none;
+  margin-top: 1.25rem;
+}
 .chart-panel {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -607,6 +611,17 @@ tbody td { padding: .65rem .9rem; vertical-align: middle; }
           </table>
         </div>
 
+        <div class="chart-section-bottom" id="lessonRateSection">
+          <div class="chart-panel">
+            <div class="chart-title">
+              <h3>授業ごとの提出率</h3>
+              <span>同じ課題名を重ねて比較</span>
+            </div>
+            <div class="chart-scroll"><div id="lessonRateChart"></div></div>
+            <div class="chart-legend" id="lessonRateLegend"></div>
+          </div>
+        </div>
+
         <!-- 空状態 -->
         <div class="empty-state" id="emptyState">
           <div class="icon">REPORTS</div>
@@ -844,6 +859,7 @@ async function doAggregate() {
   el('actionBar').style.display = 'none';
   el('statGrid').style.display = 'none';
   el('chartSection').style.display = 'none';
+  el('lessonRateSection').style.display = 'none';
   el('progressSection').style.display = '';
   el('progressBar').style.width = '0%';
   el('progressLog').innerHTML = '';
@@ -944,11 +960,14 @@ function renderCharts(data) {
   const section = el('chartSection');
   if (!data.length) {
     section.style.display = 'none';
+    el('lessonRateSection').style.display = 'none';
     el('submittedChart').innerHTML = '';
     el('rateChart').innerHTML = '';
+    el('lessonRateChart').innerHTML = '';
     return;
   }
   section.style.display = '';
+  el('lessonRateSection').style.display = '';
 
   const labels = buildReportLabels(data);
   const courses = [...new Map(data.map(r => [r.cid, { id: r.cid, name: r.cname }])).values()];
@@ -956,8 +975,10 @@ function renderCharts(data) {
 
   drawSubmittedChart(data, labels, courses, colors);
   drawRateChart(data, labels, courses, colors);
+  drawLessonRateChart(data, labels, courses, colors);
   drawLegend('submittedLegend', courses, colors);
   drawLegend('rateLegend', courses, colors);
+  drawLegend('lessonRateLegend', courses, colors);
 }
 
 function buildReportLabels(data) {
@@ -1060,6 +1081,44 @@ function drawRateChart(data, labels, courses, colors) {
   el('rateChart').innerHTML = svg;
 }
 
+function drawLessonRateChart(data, labels, courses, colors) {
+  const rates = data.map(r => r.rate).filter(v => v !== null && v !== undefined);
+  const rawMin = rates.length ? Math.min(...rates) : 0;
+  const min = Math.max(0, Math.floor(Math.max(0, rawMin - 2) / 5) * 5);
+  const max = 100;
+  const width = Math.max(920, labels.length * 98 + 140);
+  const height = 420, left = 68, right = 24, top = 22, bottom = 92;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const step = labels.length > 1 ? plotW / (labels.length - 1) : plotW;
+
+  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="授業ごとの提出率グラフ">`;
+  svg += chartGridRange(left, top, plotW, plotH, min, max, '%');
+  courses.forEach((course, ci) => {
+    const points = labels.map((label, li) => {
+      const val = valueFor(data, course.id, label.key, 'rate');
+      if (val === null || val === undefined) return null;
+      const x = labels.length > 1 ? left + step * li : left + plotW / 2;
+      const y = top + plotH - plotH * ((val - min) / (max - min || 1));
+      return { x, y, val, label };
+    }).filter(Boolean);
+    if (!points.length) return;
+    const color = colors[ci % colors.length];
+    svg += `<polyline fill="none" stroke="${color}" stroke-width="2.6" points="${points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}"></polyline>`;
+    points.forEach(p => {
+      svg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${color}"><title>${esc(course.name)} ${esc(p.label.label)}: ${p.val}%</title></circle>`;
+    });
+  });
+  labels.forEach((label, li) => {
+    const x = labels.length > 1 ? left + step * li : left + plotW / 2;
+    svg += xLabel(x, top + plotH + 26, label.label);
+  });
+  svg += `<line x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}" stroke="#9ca3af"/>`;
+  svg += `<text x="18" y="${top + 14}" font-size="12" fill="#6B6B7A">提出率 (%)</text>`;
+  svg += '</svg>';
+  el('lessonRateChart').innerHTML = svg;
+}
+
 function chartGrid(left, top, width, height, max, unit) {
   let out = '';
   for (let i = 0; i <= 5; i++) {
@@ -1067,6 +1126,17 @@ function chartGrid(left, top, width, height, max, unit) {
     const value = Math.round(max * i / 5);
     out += `<line x1="${left}" y1="${y.toFixed(1)}" x2="${left + width}" y2="${y.toFixed(1)}" stroke="#e5e7eb"/>`;
     out += `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="#6B6B7A">${value}${unit === '%' ? '' : ''}</text>`;
+  }
+  return out;
+}
+
+function chartGridRange(left, top, width, height, min, max, unit) {
+  let out = '';
+  for (let i = 0; i <= 5; i++) {
+    const y = top + height - height * i / 5;
+    const value = min + (max - min) * i / 5;
+    out += `<line x1="${left}" y1="${y.toFixed(1)}" x2="${left + width}" y2="${y.toFixed(1)}" stroke="#e5e7eb"/>`;
+    out += `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="#6B6B7A">${value.toFixed(1)}</text>`;
   }
   return out;
 }
