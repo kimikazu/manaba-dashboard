@@ -321,6 +321,15 @@ input:focus { border-color: var(--accent); background: #fff; }
   border-radius: 3px;
   display: inline-block;
 }
+.chart-note {
+  color: var(--ink-soft);
+  font-size: .78rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
 
 /* ── テーブル ── */
 .table-wrap {
@@ -958,7 +967,8 @@ function renderTable(data) {
 
 function renderCharts(data) {
   const section = el('chartSection');
-  if (!data.length) {
+  const graphData = prepareGraphData(data);
+  if (!graphData.length) {
     section.style.display = 'none';
     el('lessonRateSection').style.display = 'none';
     el('submittedChart').innerHTML = '';
@@ -969,16 +979,38 @@ function renderCharts(data) {
   section.style.display = '';
   el('lessonRateSection').style.display = '';
 
-  const labels = buildReportLabels(data);
-  const courses = [...new Map(data.map(r => [r.cid, { id: r.cid, name: r.cname }])).values()];
+  const labels = buildReportLabels(graphData);
+  const courses = buildCourseSeries(graphData);
   const colors = ['#0E7490', '#E76F51', '#166534', '#0EA5E9', '#8B5CF6', '#D97706', '#DB2777', '#475569'];
+  console.debug('[charts]', { rows: graphData.length, labels: labels.map(l => l.label), courses: courses.map(c => c.name) });
 
-  drawSubmittedChart(data, labels, courses, colors);
-  drawRateChart(data, labels, courses, colors);
-  drawLessonRateChart(data, labels, courses, colors);
+  drawSubmittedChart(graphData, labels, courses, colors);
+  drawRateChart(graphData, labels, courses, colors);
+  drawLessonRateChart(graphData, labels, courses, colors);
   drawLegend('submittedLegend', courses, colors);
   drawLegend('rateLegend', courses, colors);
   drawLegend('lessonRateLegend', courses, colors);
+}
+
+function prepareGraphData(data) {
+  return data.map(r => {
+    const submitted = Number(r.submitted);
+    const total = Number(r.total);
+    const rawRate = r.rate === null || r.rate === undefined || r.rate === '' ? NaN : Number(r.rate);
+    const rate = Number.isFinite(rawRate)
+      ? rawRate
+      : (Number.isFinite(submitted) && Number.isFinite(total) && total > 0
+        ? Math.round(submitted / total * 1000) / 10
+        : null);
+    return {
+      ...r,
+      submitted: Number.isFinite(submitted) ? submitted : 0,
+      total: Number.isFinite(total) ? total : 0,
+      rate,
+      graphKey: graphReportKey(r),
+      graphLabel: graphReportLabel(r)
+    };
+  }).filter(r => r.graphKey && (r.submitted > 0 || r.total > 0 || r.rate !== null));
 }
 
 function buildReportLabels(data) {
@@ -989,22 +1021,75 @@ function buildReportLabels(data) {
       map.set(key, {
         key,
         label: reportLabel(r),
-        sort: r.deadline || r.title || key
+        sort: lessonSortValue(key, r.deadline || r.title || key)
       });
     }
   });
-  return [...map.values()].sort((a, b) => String(a.sort).localeCompare(String(b.sort), 'ja'));
+  return [...map.values()].sort((a, b) => a.sort - b.sort || String(a.label).localeCompare(String(b.label), 'ja'));
+}
+
+function buildCourseSeries(data) {
+  return [...new Map(data.map(r => [r.cid, { id: r.cid, baseName: r.cname }])).values()].map(course => {
+    const duplicate = [...new Set(data.filter(r => r.cname === course.baseName).map(r => r.cid))].length > 1;
+    const label = duplicate ? `${course.baseName} (${course.id.replace(/^course_/, '')})` : course.baseName;
+    return { id: course.id, name: label };
+  });
+}
+
+function lessonSortValue(key, fallback) {
+  const normalized = normalizeSpaces(key).replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+  const m = normalized.match(/第\s*([0-9一二三四五六七八九十]+)\s*回\s*([12]?)/);
+  if (m) return japaneseNumberValue(m[1]) * 10 + (m[2] ? Number(m[2]) : 0);
+  const d = String(fallback).match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (d) return Number(`${d[1]}${d[2].padStart(2, '0')}${d[3].padStart(2, '0')}`);
+  return 999999999;
+}
+
+function japaneseNumberValue(value) {
+  const s = String(value).replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+  if (/^\d+$/.test(s)) return Number(s);
+  const digits = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  if (s === '十') return 10;
+  if (s.includes('十')) {
+    const [tens, ones] = s.split('十');
+    return (digits[tens] || 1) * 10 + (digits[ones] || 0);
+  }
+  return digits[s] || 0;
 }
 
 function reportKey(r) {
-  return normalizeReportTitle(r.title || r.rid || '');
+  return r.graphKey || normalizeReportTitle(r.title || r.rid || '');
 }
 
 function reportLabel(r) {
+  if (r.graphLabel) return r.graphLabel;
   const title = r.title || '';
   const m = title.match(/第\s*[0-9０-９一二三四五六七八九十]+回\s*[１２12]?/);
   if (m) return m[0].replace(/\s+/g, '');
   return title.length > 14 ? title.slice(0, 14) + '...' : title || r.rid;
+}
+
+function graphReportKey(r) {
+  const title = normalizeSpaces(r.title || '');
+  const lesson = extractLessonLabel(title);
+  if (lesson) return lesson;
+  return normalizeReportTitle(title || r.rid || '');
+}
+
+function graphReportLabel(r) {
+  const title = normalizeSpaces(r.title || '');
+  return extractLessonLabel(title) || (title.length > 14 ? title.slice(0, 14) + '...' : title || r.rid);
+}
+
+function extractLessonLabel(title) {
+  const s = normalizeSpaces(title).replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+  const m = s.match(/第\s*([0-9一二三四五六七八九十]+)\s*回\s*([12]?)/);
+  if (!m) return '';
+  return `第${m[1]}回${m[2] || ''}`;
+}
+
+function normalizeSpaces(s) {
+  return String(s || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function normalizeReportTitle(title) {
@@ -1048,6 +1133,10 @@ function drawSubmittedChart(data, labels, courses, colors) {
 }
 
 function drawRateChart(data, labels, courses, colors) {
+  if (!data.some(r => r.rate !== null && r.rate !== undefined)) {
+    el('rateChart').innerHTML = '<div class="chart-note">提出率を計算できるデータがありません</div>';
+    return;
+  }
   const min = 0, max = 100;
   const width = Math.max(760, labels.length * 86 + 120);
   const height = 330, left = 58, right = 18, top = 18, bottom = 78;
@@ -1083,6 +1172,10 @@ function drawRateChart(data, labels, courses, colors) {
 
 function drawLessonRateChart(data, labels, courses, colors) {
   const rates = data.map(r => r.rate).filter(v => v !== null && v !== undefined);
+  if (!rates.length) {
+    el('lessonRateChart').innerHTML = '<div class="chart-note">提出率を計算できるデータがありません</div>';
+    return;
+  }
   const rawMin = rates.length ? Math.min(...rates) : 0;
   const min = Math.max(0, Math.floor(Math.max(0, rawMin - 2) / 5) * 5);
   const max = 100;
