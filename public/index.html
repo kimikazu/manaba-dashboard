@@ -1118,8 +1118,8 @@ function renderCharts(data) {
     el('lessonRateChart').innerHTML = '';
     return;
   }
-  section.style.display = '';
-  el('lessonRateSection').style.display = '';
+  section.style.display = 'block';
+  el('lessonRateSection').style.display = 'block';
 
   const labels = buildReportLabels(graphData);
   const courses = buildCourseSeries(graphData);
@@ -1137,7 +1137,7 @@ function renderCharts(data) {
 function renderPivot(data) {
   const section = el('pivotSection');
   const graphData = prepareGraphData(data);
-  if (!graphData.length) {
+  if (!data.length) {
     section.style.display = 'none';
     el('pivotChart').innerHTML = '';
     el('pivotLegend').innerHTML = '';
@@ -1146,12 +1146,20 @@ function renderPivot(data) {
     return;
   }
 
-  section.style.display = '';
+  section.style.display = 'block';
   const config = getPivotConfig();
-  const pivot = buildPivot(graphData, config);
-
   el('pivotSummary').textContent =
     `${dimensionName(config.axis)} × ${dimensionName(config.series)} / ${measureName(config.measure)} (${chartTypeName(config.chartType)})`;
+
+  if (!graphData.length) {
+    el('pivotChart').innerHTML = '<div class="chart-note">提出数・学生数を持つ行がないため、グラフ化できません。プルダウンで集計軸は変更できます。</div>';
+    el('pivotLegend').innerHTML = '';
+    el('pivotTable').innerHTML = '';
+    return;
+  }
+
+  const pivot = buildPivot(graphData, config);
+
   drawPivotChart(pivot, config);
   renderPivotTable(pivot, config);
 }
@@ -1206,7 +1214,7 @@ function pivotDimensionValue(row, dimension, courseLabels) {
   }
   if (dimension === 'report') {
     const key = reportKey(row);
-    return { key, label: reportLabel(row), sort: lessonSortValue(key, row.deadline || row.title || key) };
+    return { key, label: reportLabel(row), sort: reportSortValue(row.title || key, row.deadline || row.title || key) };
   }
   if (dimension === 'deadline') {
     const m = String(row.deadline || '').match(/\d{4}[/-]\d{1,2}[/-]\d{1,2}/);
@@ -1414,7 +1422,7 @@ function buildReportLabels(data) {
       map.set(key, {
         key,
         label: reportLabel(r),
-        sort: lessonSortValue(key, r.deadline || r.title || key)
+        sort: reportSortValue(r.title || key, r.deadline || r.title || key)
       });
     }
   });
@@ -1429,8 +1437,8 @@ function buildCourseSeries(data) {
   });
 }
 
-function lessonSortValue(key, fallback) {
-  const normalized = normalizeSpaces(key).replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+function reportSortValue(title, fallback) {
+  const normalized = normalizeSpaces(title).replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
   const m = normalized.match(/第\s*([0-9一二三四五六七八九十]+)\s*回\s*([12]?)/);
   if (m) return japaneseNumberValue(m[1]) * 10 + (m[2] ? Number(m[2]) : 0);
   const d = String(fallback).match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
@@ -1457,28 +1465,17 @@ function reportKey(r) {
 function reportLabel(r) {
   if (r.graphLabel) return r.graphLabel;
   const title = r.title || '';
-  const m = title.match(/第\s*[0-9０-９一二三四五六七八九十]+回\s*[１２12]?/);
-  if (m) return m[0].replace(/\s+/g, '');
-  return title.length > 14 ? title.slice(0, 14) + '...' : title || r.rid;
+  return compactReportLabel(title || r.rid);
 }
 
 function graphReportKey(r) {
   const title = normalizeSpaces(r.title || '');
-  const lesson = extractLessonLabel(title);
-  if (lesson) return lesson;
   return normalizeReportTitle(title || r.rid || '');
 }
 
 function graphReportLabel(r) {
   const title = normalizeSpaces(r.title || '');
-  return extractLessonLabel(title) || (title.length > 14 ? title.slice(0, 14) + '...' : title || r.rid);
-}
-
-function extractLessonLabel(title) {
-  const s = normalizeSpaces(title).replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
-  const m = s.match(/第\s*([0-9一二三四五六七八九十]+)\s*回\s*([12]?)/);
-  if (!m) return '';
-  return `第${m[1]}回${m[2] || ''}`;
+  return compactReportLabel(title || r.rid);
 }
 
 function normalizeSpaces(s) {
@@ -1486,9 +1483,14 @@ function normalizeSpaces(s) {
 }
 
 function normalizeReportTitle(title) {
-  const m = String(title).match(/第\s*([0-9０-９一二三四五六七八九十]+)\s*回\s*([１２12]?)/);
-  if (m) return `第${m[1]}回${m[2] || ''}`;
-  return String(title).replace(/\s+/g, '').slice(0, 50);
+  return normalizeSpaces(title)
+    .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0))
+    .toLowerCase();
+}
+
+function compactReportLabel(title) {
+  const normalized = normalizeSpaces(title);
+  return normalized.length > 22 ? normalized.slice(0, 22) + '...' : normalized;
 }
 
 function valueFor(data, courseId, labelKey, field) {
