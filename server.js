@@ -4,10 +4,16 @@ const express = require('express');
 const session = require('express-session');
 const axios   = require('axios');
 const cheerio = require('cheerio');
+const http    = require('http');
 const https   = require('https');
 const path    = require('path');
 
 const app = express();
+const REQUEST_TIMEOUT_MS = clampInt(process.env.MANABA_TIMEOUT_MS, 20000, 5000, 120000);
+const REQUEST_DELAY_MS = clampInt(process.env.MANABA_REQUEST_DELAY_MS, 150, 0, 3000);
+const REPORT_CONCURRENCY = clampInt(process.env.MANABA_REPORT_CONCURRENCY, 3, 1, 6);
+const REQUEST_RETRIES = clampInt(process.env.MANABA_REQUEST_RETRIES, 2, 0, 5);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -51,6 +57,15 @@ class ManabaClient {
     this.cookies = new CookieStore();
     this.opts    = opts;
     this.loggedIn = false;
+    this.requestDelayMs = clampInt(opts.requestDelayMs ?? REQUEST_DELAY_MS, REQUEST_DELAY_MS, 0, 3000);
+    this.reportConcurrency = clampInt(opts.reportConcurrency ?? REPORT_CONCURRENCY, REPORT_CONCURRENCY, 1, 6);
+    this.courseCache = new Map();
+    this.httpAgent = new http.Agent({ keepAlive: true, maxSockets: Math.max(4, this.reportConcurrency + 2) });
+    this.httpsAgent = new https.Agent({
+      keepAlive: true,
+      maxSockets: Math.max(4, this.reportConcurrency + 2),
+      rejectUnauthorized: !this.opts.ignoreTls
+    });
   }
 
   _resolveUrl(urlOrPath, basePath = '/') {
@@ -60,16 +75,19 @@ class ManabaClient {
   }
 
   _cfg(extra = {}) {
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Cookie': this.cookies.header(),
+      ...(extra.headers || {})
+    };
     const cfg = {
-      timeout: 30000,
+      timeout: REQUEST_TIMEOUT_MS,
       maxRedirects: 10,
       validateStatus: () => true,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Cookie': this.cookies.header(),
-        ...(extra.headers || {})
-      },
-      httpsAgent: new https.Agent({ rejectUnauthorized: !this.opts.ignoreTls }),
+      httpAgent: this.httpAgent,
+      httpsAgent: this.httpsAgent,
+      ...extra,
+      headers,
     };
 
     const proxyUrl = this.opts.proxy
@@ -82,14 +100,13 @@ class ManabaClient {
       } catch (_) {}
     }
 
-    return { ...cfg, ...extra, headers: cfg.headers };
+    return cfg;
   }
 
   async _get(urlOrPath, basePath = '/') {
     const url = this._resolveUrl(urlOrPath, basePath);
-    const res = await axios.get(url, this._cfg());
+    const res = await this._request('get', url);
     this.cookies.ingest(res.headers['set-cookie']);
-    await sleep(800);
     const $ = cheerio.load(res.data);
     $.meta = { requestedUrl: url, finalUrl: responseFinalUrl(res), status: res.status };
     return $;
@@ -97,13 +114,32 @@ class ManabaClient {
 
   async _post(urlOrPath, payload, basePath = '/') {
     const url = this._resolveUrl(urlOrPath, basePath);
-    const res = await axios.post(url, new URLSearchParams(payload).toString(),
-      this._cfg({ headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }));
+    const res = await this._request('post', url, new URLSearchParams(payload).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
     this.cookies.ingest(res.headers['set-cookie']);
-    await sleep(800);
     const $ = cheerio.load(res.data);
     $.meta = { requestedUrl: url, finalUrl: responseFinalUrl(res), status: res.status };
     return $;
+  }
+
+  async _request(method, url, data = undefined, extra = {}) {
+    let lastError;
+    for (let attempt = 0; attempt <= REQUEST_RETRIES; attempt++) {
+      try {
+        const res = await axios({ method, url, data, ...this._cfg(extra) });
+        if (isRetryableStatus(res.status) && attempt < REQUEST_RETRIES) {
+          await sleep(retryDelayMs(attempt));
+          continue;
+        }
+        if (this.requestDelayMs > 0) await sleep(this.requestDelayMs);
+        return res;
+      } catch (e) {
+        lastError = e;
+        if (!isRetryableError(e) || attempt >= REQUEST_RETRIES) break;
+        await sleep(retryDelayMs(attempt));
+      }
+    }
+    throw lastError;
   }
 
   // ── ログイン ──────────────────────────────
@@ -149,6 +185,10 @@ class ManabaClient {
 
   // ── コース一覧 ────────────────────────────
   async getCourses(yearFilter = '') {
+    const cacheKey = String(yearFilter || '');
+    const cached = this.courseCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < 60000) return cached.courses;
+
     // manaba はバージョン・設定により URL が異なるため複数候補を試す
     const candidates = ['/ct/home_course', '/ct/home', '/ct/home_course_list', '/ct/courselist'];
     let $ = null;
@@ -172,6 +212,7 @@ class ManabaClient {
     });
 
     console.log(`[courses] ${courses.length} 件検出`);
+    this.courseCache.set(cacheKey, { at: Date.now(), courses });
     return courses;
   }
 
@@ -182,7 +223,7 @@ class ManabaClient {
     try { $ = await this._get(`/ct/${cid}_report`); }
     catch (_) { return []; }
 
-    const reports = [];
+    const reportItems = [];
     const anchors = $(`a[href*="${cid}_report_"]`).toArray();
     const seen = new Set();
 
@@ -201,14 +242,21 @@ class ManabaClient {
       const deadline = extractDeadline(rowText);
       const status   = (rowText.match(/受付中|未開始|受付終了|終了|公開中|公開|締切済|締切/) || [''])[0];
 
+      reportItems.push({ href, rid, title, deadline, status });
+    }
+
+    let done = 0;
+    const reports = await mapLimit(reportItems, this.reportConcurrency, async item => {
+      const { href, rid, title, deadline, status } = item;
       const { submitted, total } = await this._counts(href, `/ct/${cid}_report`);
       const rate = total > 0 ? Math.round(submitted / total * 1000) / 10 : null;
 
-      reports.push({ cid, cname, rid, title, deadline, status, submitted, total, rate,
-        url: this._resolveUrl(href, `/ct/${cid}_report`) });
-      if (onProgress) onProgress({ course: cname, report: title, done: i + 1, total: anchors.length });
-    }
-    return reports;
+      done += 1;
+      if (onProgress) onProgress({ course: cname, report: title, done, total: reportItems.length });
+      return { cid, cname, rid, title, deadline, status, submitted, total, rate,
+        url: this._resolveUrl(href, `/ct/${cid}_report`) };
+    });
+    return reports.filter(Boolean);
   }
 
   async _counts(urlPath, basePath = '/') {
@@ -228,6 +276,37 @@ class ManabaClient {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function clampInt(value, fallback, min, max) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+function retryDelayMs(attempt) {
+  return 500 * Math.pow(2, attempt);
+}
+function isRetryableStatus(status) {
+  return status === 429 || status >= 500;
+}
+function isRetryableError(e) {
+  return ['ECONNRESET', 'ETIMEDOUT', 'ECONNABORTED', 'EAI_AGAIN', 'ENOTFOUND'].includes(e?.code);
+}
+async function mapLimit(items, limit, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+function saveSession(req) {
+  return new Promise((resolve, reject) => {
+    req.session.save(err => err ? reject(err) : resolve());
+  });
+}
 function sseWrite(res, event, data) { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); }
 function cleanText(text = '') { return String(text).replace(/\u00a0/g, ' ').replace(/[ \t\r\f\v]+/g, ' ').trim(); }
 function responseFinalUrl(res) {
@@ -465,27 +544,41 @@ app.get('/api/aggregate', async (req, res) => {
   const client = clients.get(req.sessionID);
   if (!client) { res.status(401).end(); return; }
 
-  const courseIds  = (req.query.courses || '').split(',').filter(Boolean);
-  const allCourses = await client.getCourses(req.query.year || '');
-  const targets    = courseIds.length ? allCourses.filter(c => courseIds.includes(c.id)) : allCourses;
+  let keepAlive = null;
+  try {
+    const courseIds  = (req.query.courses || '').split(',').filter(Boolean);
+    const allCourses = await client.getCourses(req.query.year || '');
+    const targets    = courseIds.length ? allCourses.filter(c => courseIds.includes(c.id)) : allCourses;
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    keepAlive = setInterval(() => res.write(': keep-alive\n\n'), 15000);
 
-  const results = [];
-  for (let i = 0; i < targets.length; i++) {
-    const course = targets[i];
-    sseWrite(res, 'progress', { phase: 'course', name: course.name, index: i + 1, total: targets.length });
-    const reports = await client.getReports(course, p => sseWrite(res, 'progress', { phase: 'report', ...p }));
-    results.push(...reports);
-    sseWrite(res, 'courseResult', { course: course.name, count: reports.length, reports });
+    const results = [];
+    for (let i = 0; i < targets.length; i++) {
+      const course = targets[i];
+      sseWrite(res, 'progress', { phase: 'course', name: course.name, index: i + 1, total: targets.length });
+      const reports = await client.getReports(course, p => sseWrite(res, 'progress', { phase: 'report', ...p }));
+      results.push(...reports);
+      sseWrite(res, 'courseResult', { course: course.name, count: reports.length, reports });
+    }
+
+    req.session.lastResult = results;
+    await saveSession(req);
+    sseWrite(res, 'done', { total: results.length });
+    res.end();
+  } catch (e) {
+    if (res.headersSent) {
+      sseWrite(res, 'aggregateError', { error: e.message || '集約に失敗しました' });
+      res.end();
+    } else {
+      res.status(500).json({ error: e.message || '集約に失敗しました' });
+    }
+  } finally {
+    if (keepAlive) clearInterval(keepAlive);
   }
-
-  req.session.lastResult = results;
-  sseWrite(res, 'done', { total: results.length });
-  res.end();
 });
 
 app.get('/api/export/csv', (req, res) => {

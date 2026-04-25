@@ -359,12 +359,12 @@ input:focus { border-color: var(--accent); background: #fff; }
 }
 .pivot-output-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(280px, .75fr);
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .9rem;
   align-items: start;
 }
 .pivot-table-wrap {
-  max-height: 365px;
+  max-height: 420px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -372,6 +372,8 @@ input:focus { border-color: var(--accent); background: #fff; }
 }
 .pivot-table {
   font-size: .74rem;
+  min-width: max(720px, 100%);
+  table-layout: auto;
 }
 .pivot-table thead tr {
   background: #f0eeea;
@@ -390,13 +392,13 @@ input:focus { border-color: var(--accent); background: #fff; }
 .pivot-table thead th:hover {
   background: #f0eeea;
 }
-.pivot-table th,
 .pivot-table td {
   white-space: nowrap;
 }
 .pivot-table td {
   text-align: right;
   font-family: var(--mono);
+  min-width: 92px;
 }
 .pivot-table .pivot-row-head {
   text-align: left;
@@ -405,6 +407,18 @@ input:focus { border-color: var(--accent); background: #fff; }
   background: #fff;
   position: sticky;
   left: 0;
+  width: clamp(220px, 34vw, 560px);
+  min-width: 220px;
+  max-width: 560px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.45;
+  z-index: 2;
+}
+.pivot-table thead .pivot-row-head {
+  background: #f0eeea;
+  z-index: 3;
 }
 .pivot-summary {
   color: var(--ink-soft);
@@ -1039,6 +1053,13 @@ async function doAggregate() {
     setBtn('aggregateBtn', false, '集約開始');
     renderTable(allData);
     toast(`集約完了: ${allData.length} 件のレポート`, 'ok');
+  });
+
+  es.addEventListener('aggregateError', e => {
+    const d = JSON.parse(e.data || '{}');
+    es.close();
+    setBtn('aggregateBtn', false, '集約開始');
+    toast(d.error || '集約中にエラーが発生しました', 'err');
   });
 
   es.onerror = () => {

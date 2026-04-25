@@ -33,4 +33,18 @@ open http://localhost:3000
 ```bash
 PORT=8080 npm start
 ```
+
+## 取得速度の調整
+
+manaba へのアクセス間隔と並列数は環境変数で調整できます。通常は既定値のままで使えます。
+
+```bash
+# 例: レポート件数取得を4並列、各アクセス後の待ち時間を100msにする
+MANABA_REPORT_CONCURRENCY=4 MANABA_REQUEST_DELAY_MS=100 npm start
+```
+
+- `MANABA_REPORT_CONCURRENCY`: レポート件数取得の並列数。既定値は `3`、上限は `6`
+- `MANABA_REQUEST_DELAY_MS`: 各アクセス後の待ち時間。既定値は `150`
+- `MANABA_TIMEOUT_MS`: 1リクエストのタイムアウト。既定値は `20000`
+- `MANABA_REQUEST_RETRIES`: 一時的な失敗時の再試行回数。既定値は `2`
 # manaba-dashboard
