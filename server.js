@@ -253,8 +253,8 @@ class ManabaClient {
 
       done += 1;
       if (onProgress) onProgress({ course: cname, report: title, done, total: reportItems.length });
-      return { cid, cname, rid, title, deadline, status, submitted, total, rate,
-        url: this._resolveUrl(href, `/ct/${cid}_report`) };
+      const urls = reportAdminUrls(this, cid, rid, href);
+      return { cid, cname, rid, title, deadline, status, submitted, total, rate, ...urls };
     });
     return reports.filter(Boolean);
   }
@@ -372,6 +372,12 @@ function reportCountCandidatePaths(urlPath = '') {
   if (m) candidates.push(`course_${m[1]}_collectiontop_${m[2]}`);
   candidates.push(urlPath);
   return [...new Set(candidates)];
+}
+function reportAdminUrls(client, cid, rid, href) {
+  const studentUrl = client._resolveUrl(href, `/ct/${cid}_report`);
+  const confirmUrl = client._resolveUrl(`/ct/${cid}_collectiontop_${rid}`);
+  const gradeUrl = client._resolveUrl(`/ct/${cid}_rptadm_${rid}_grade`);
+  return { url: gradeUrl, gradeUrl, confirmUrl, studentUrl };
 }
 function extractSubmittedSummary($) {
   let submitted = 0;
@@ -584,9 +590,10 @@ app.get('/api/aggregate', async (req, res) => {
 app.get('/api/export/csv', (req, res) => {
   const data = req.session.lastResult;
   if (!data?.length) return res.status(404).json({ error: 'データがありません' });
-  const headers = ['コース名', 'レポートタイトル', '締切', '状態', '登録学生数', '提出済', '未提出', '提出率(%)', 'URL'];
+  const headers = ['コース名', 'レポートタイトル', '締切', '状態', '登録学生数', '提出済', '未提出', '提出率(%)', '一括回収・採点URL', '提出確認URL', '学生向けURL'];
   const rows = data.map(r => [r.cname, r.title, r.deadline, r.status,
-    r.total, r.submitted, Math.max(0, r.total - r.submitted), r.rate ?? '', r.url]);
+    r.total, r.submitted, Math.max(0, r.total - r.submitted), r.rate ?? '',
+    r.gradeUrl || r.url, r.confirmUrl || '', r.studentUrl || '']);
   const csv = [headers, ...rows]
     .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
     .join('\n');

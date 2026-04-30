@@ -460,6 +460,16 @@ tbody td { padding: .65rem .9rem; vertical-align: middle; }
 .td-course { color: var(--ink-soft); font-size: .72rem; }
 .td-title a { color: var(--accent); text-decoration: none; }
 .td-title a:hover { text-decoration: underline; }
+.td-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .55rem;
+  margin-top: .35rem;
+  font-size: .68rem;
+}
+.td-links a {
+  color: var(--ink-soft);
+}
 .td-mono { font-family: var(--mono); font-size: .75rem; }
 
 /* 提出率バッジ */
@@ -1097,7 +1107,13 @@ function renderTable(data) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="td-course">${esc(r.cname)}</td>
-      <td class="td-title"><a href="${esc(r.url)}" target="_blank">${esc(r.title)}</a></td>
+      <td class="td-title">
+        <a href="${esc(r.gradeUrl || r.url)}" target="_blank">${esc(r.title)}</a>
+        <div class="td-links">
+          ${r.confirmUrl ? `<a href="${esc(r.confirmUrl)}" target="_blank">提出確認</a>` : ''}
+          ${r.studentUrl ? `<a href="${esc(r.studentUrl)}" target="_blank">学生向け</a>` : ''}
+        </div>
+      </td>
       <td class="td-mono" style="white-space:nowrap">${esc(r.deadline)}</td>
       <td><span style="font-size:.72rem;color:var(--ink-soft)">${esc(r.status)}</span></td>
       <td class="td-mono" style="text-align:right">${totalText}</td>
